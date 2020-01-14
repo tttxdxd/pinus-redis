@@ -6,9 +6,7 @@
 
 'use strict';
 import { createClient, RedisClient, ClientOpts } from 'redis';
-import { getLogger, Logger } from 'pinus-logger';
-
-const logger: Logger = getLogger('redis', 'pinus-redis');
+import { Logger } from 'pinus-logger';
 
 // export enum SetMode {
 //   EX = 'EX',                  // 设置指定的终止时间，以秒为单位。
@@ -27,23 +25,24 @@ export type SetMode = 'EX' | 'PX' | 'NX' | 'XX' | 'KEEPTTL';
 export type SetFlag = 'write' | 'denyoom';
 
 export class RedisProxy {
+  logger: Console | Logger = console;
   client!: RedisClient;
   clientOpts?: ClientOpts;
-  isOpen: boolean = false;
 
-  constructor(opts?: ClientOpts) {
+  constructor(opts?: ClientOpts, logger?: Console | Logger) {
     this.clientOpts = opts;
+    this.logger = logger || this.logger;
   }
 
-  init(): Promise<any> {
+  start(): Promise<any> {
     this.client = createClient(this.clientOpts);
 
-    this.client.on('ready', this.onready);
-    this.client.on('connect', this.onconnect);
-    this.client.on('error', this.onerror);
-    this.client.on('warning', this.onwarning);
-    this.client.on('reconnecting', this.onreconnecting);
-    this.client.on('end', this.onend);
+    this.client.on('ready', this.onready.bind(this));
+    this.client.on('connect', this.onconnect.bind(this));
+    this.client.on('error', this.onerror.bind(this));
+    this.client.on('warning', this.onwarning.bind(this));
+    this.client.on('reconnecting', this.onreconnecting.bind(this));
+    this.client.on('end', this.onend.bind(this));
 
     return new Promise(resolve => {
       this.client.on('connect', function () {
@@ -52,29 +51,32 @@ export class RedisProxy {
     });
   }
 
+  stop(flush?: boolean) {
+    this.client.end(flush);
+  }
+
   onready() {
-    logger.info('redis ready');
+    this.logger.log('redis ready.');
   }
 
   onconnect() {
-    logger.info('redis connect');
-    this.isOpen = true;
+    this.logger.log('redis connect.');
   }
 
   onreconnecting(delay, attempt) {
-    logger.info('redis reconnecting');
+    this.logger.log('redis reconnecting.');
   }
 
   onerror(err: Error) {
-    logger.info('redis error');
+    this.logger.log('redis error.');
   }
 
   onwarning() {
-    logger.info('redis warning');
+    this.logger.log('redis warning.');
   }
 
   onend() {
-    logger.info('redis end');
+    this.logger.log('redis end.');
   }
 
   set(key: string, value: string): Promise<any>;
@@ -93,7 +95,7 @@ export class RedisProxy {
    * @memberof RedisProxy
    */
   set(key: string, value: string, ...args: any[]): Promise<any> {
-    return promisify(this.client.set.bind(this.client), key, value, ...args);
+    return promisify(this.client, this.client.set, key, value, ...args);
   }
 
   /**
@@ -104,7 +106,7 @@ export class RedisProxy {
    * @memberof RedisProxy
    */
   get(key: string): Promise<any> {
-    return promisify(this.client.get.bind(this.client), key);
+    return promisify(this.client, this.client.get, key);
   }
 
   /**
@@ -115,13 +117,26 @@ export class RedisProxy {
    * @memberof RedisProxy
    */
   del(...keys: string[]): Promise<any> {
-    return promisify(this.client.del.bind(this.client), ...keys);
+    return promisify(this.client, this.client.del, ...keys);
+  }
+
+  getset(key: string, value: string): Promise<any> {
+    return promisify(this.client, this.client.getset, key, value);
+  }
+
+  strlen(key: string): Promise<number> {
+    return promisify(this.client, this.client.strlen, key);
   }
 }
 
-function promisify(callback: Function, ...args: any[]): Promise<any> {
+function promisify(client: RedisClient, callback: Function, ...args: any[]): Promise<any> {
   return new Promise((resolve, reject) => {
-    callback(...args, (error: Error, reply: any) => {
+    if (!client) {
+      reject(new Error('client is undefined'));
+      return;
+    }
+
+    callback.call(client, ...args, (error: Error, reply: any) => {
       if (error) {
         reject(error);
       } else {

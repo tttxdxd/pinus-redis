@@ -4,18 +4,19 @@ import * as should from 'should';
 import { RedisProxy } from "../lib/redis";
 
 describe('#RedisProxy', function () {
-  let proxy = new RedisProxy();
-
-  before(function (done: MochaDone) {
-    proxy.init().then(() => {
-      done();
-    });
-  });
+  let proxy = new RedisProxy(undefined);
 
   let testKey = 'test:key';
   let testKey2 = 'test:key2';
   let testValue = 'testValue';
   let testValue2 = 'testValue2';
+
+
+  before(function (done: MochaDone) {
+    proxy.start().then(() => {
+      done();
+    });
+  });
 
   it('set', function (done: MochaDone) {
     proxy.set(testKey, testValue).then(res => {
@@ -81,6 +82,9 @@ describe('#RedisProxy', function () {
     should.equal(await proxy.del(testKey, testKey2), 1);
   });
 
+  it('close', async function () {
+    proxy.stop();
+  });
 });
 
 function sleep(timeout): Promise<any> {
