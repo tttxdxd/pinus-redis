@@ -81,7 +81,6 @@ describe('#RedisProxy', function () {
     should.equal(await proxy.del(testKey, testKey2), 1);
   });
 
-
 });
 
 function sleep(timeout): Promise<any> {
