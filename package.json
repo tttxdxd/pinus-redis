@@ -1,0 +1,39 @@
+{
+  "name": "pinus-redis",
+  "version": "1.0.0",
+  "description": "pinus plugin for redis",
+  "main": "./dist/index.js",
+  "scripts": {
+    "dev": "nodemon --inspect --watch src/**/* --ext .ts --exec node -r ts-node/register ./src/app.ts",
+    "start": "npm run build && node ./dist/app.js",
+    "build": "tsc",
+    "test": "mocha -r ts-node/register ./test/*.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tttxdxd/pinus-redis.git"
+  },
+  "keywords": [
+    "pinus",
+    "redis"
+  ],
+  "author": "tttxdxd",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tttxdxd/pinus-redis/issues"
+  },
+  "homepage": "https://github.com/tttxdxd/pinus-redis#readme",
+  "devDependencies": {
+    "@types/mocha": "^5.2.7",
+    "@types/redis": "^2.8.14",
+    "@types/should": "^13.0.0",
+    "mocha": "^7.0.0",
+    "pinus": "^1.4.1",
+    "should": "^13.2.3",
+    "ts-node": "^8.6.2",
+    "typescript": "^3.7.4"
+  },
+  "dependencies": {
+    "redis": "^2.8.0"
+  }
+}
