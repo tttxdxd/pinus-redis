@@ -8,33 +8,20 @@
 import { createClient, RedisClient, ClientOpts } from 'redis';
 import { Logger } from 'pinus-logger';
 
-// export enum SetMode {
-//   EX = 'EX',                  // 设置指定的终止时间，以秒为单位。
-//   PX = 'PX',                  // 设置指定的终止时间，以毫秒为单位。
-//   NX = 'NX',                  // 仅设置不存在的密钥。
-//   XX = 'XX',                  // 仅设置已存在的密钥。
-//   KEEPTTL = 'KEEPTTL'         // 保留与钥匙关联的生存时间。 redis >= 6.0：添加了该KEEPTTL选项。
-// }
-export type SetMode = 'EX' | 'PX' | 'NX' | 'XX' | 'KEEPTTL';
+import { IRedisString, IRedisZset } from './interface';
 
-// export enum SetFlag {
-//   WRITE = 'write',            // 命令可能会导致修改
-//   DENYOON = 'denyoom'         // 如果当前是OOM，则拒绝命令
-// }
-
-export type SetFlag = 'write' | 'denyoom';
-
-export class RedisProxy {
+export class RedisProxy implements IRedisString, IRedisZset {
   logger: Console | Logger = console;
   client!: RedisClient;
   clientOpts?: ClientOpts;
 
+  string: IRedisString = this;
+  zset: IRedisZset = this;
+
   constructor(opts?: ClientOpts, logger?: Console | Logger) {
     this.clientOpts = opts;
     this.logger = logger || this.logger;
-  }
 
-  start(): Promise<any> {
     this.client = createClient(this.clientOpts);
 
     this.client.on('ready', this.onready.bind(this));
@@ -43,12 +30,6 @@ export class RedisProxy {
     this.client.on('warning', this.onwarning.bind(this));
     this.client.on('reconnecting', this.onreconnecting.bind(this));
     this.client.on('end', this.onend.bind(this));
-
-    return new Promise(resolve => {
-      this.client.on('connect', function () {
-        resolve();
-      });
-    });
   }
 
   stop(flush?: boolean) {
@@ -63,7 +44,7 @@ export class RedisProxy {
     this.logger.log('redis connect.');
   }
 
-  onreconnecting(delay, attempt) {
+  onreconnecting({ delay, attempt, error }) {
     this.logger.log('redis reconnecting.');
   }
 
@@ -79,63 +60,119 @@ export class RedisProxy {
     this.logger.log('redis end.');
   }
 
-  set(key: string, value: string): Promise<any>;
-  set(key: string, value: string, flag: SetFlag): Promise<any>;
-  set(key: string, value: string, mode: SetMode): Promise<any>;
-  set(key: string, value: string, mode: SetMode, duration: number): Promise<any>;
-  set(key: string, value: string, mode: SetMode, duration: number, flag: SetFlag): Promise<any>;
+  //#region base
 
-  /**
-   * 根据键名设置对应值 可传入设置模式 留存时间等参数 成功返回 OK
-   *
-   * @param {string} key
-   * @param {string} value
-   * @param {...any[]} args
-   * @returns {Promise<any>}
-   * @memberof RedisProxy
-   */
+  exists(...keys: string[]): Promise<number> {
+    return promisify(this.client, this.client.exists, ...keys);
+  }
+
+  del(...keys: string[]): Promise<number> {
+    return promisify(this.client, this.client.del, ...keys);
+  }
+
+  //#endregion
+
+  //#region 字符串
+
   set(key: string, value: string, ...args: any[]): Promise<any> {
     return promisify(this.client, this.client.set, key, value, ...args);
   }
 
-  /**
-   * 根据键名获取对应值
-   *
-   * @param {string} key
-   * @returns {Promise<any>}
-   * @memberof RedisProxy
-   */
-  get(key: string): Promise<any> {
+  get(key: string): Promise<string> {
     return promisify(this.client, this.client.get, key);
   }
 
-  /**
-   * 删除 键值对 可传入多个键名 返回成功删除键值对的个数
-   *
-   * @param {...string[]} keys
-   * @returns {Promise<any>}
-   * @memberof RedisProxy
-   */
-  del(...keys: string[]): Promise<any> {
-    return promisify(this.client, this.client.del, ...keys);
-  }
-
-  getset(key: string, value: string): Promise<any> {
+  getset(key: string, value: string): Promise<string> {
     return promisify(this.client, this.client.getset, key, value);
   }
 
   strlen(key: string): Promise<number> {
     return promisify(this.client, this.client.strlen, key);
   }
+
+  append(key: string, value: string): Promise<number> {
+    return promisify(this.client, this.client.append, key, value);
+  }
+
+  incr(key: string): Promise<number> {
+    return promisify(this.client, this.client.incr, key);
+  }
+
+  incrby(key: string, increment: number): Promise<number> {
+    return promisify(this.client, this.client.incrby, key, increment);
+  }
+
+  incrbyfloat(key: string, increment: number): Promise<number> {
+    return promisify(this.client, this.client.incrbyfloat, key, increment);
+  }
+
+  decr(key: string): Promise<number> {
+    return promisify(this.client, this.client.decr, key);
+  }
+
+  decrby(key: string, decrement: number): Promise<number> {
+    return promisify(this.client, this.client.decrby, key, decrement);
+  }
+
+  mset(key: string, value: string, ...args: any[]): Promise<any> {
+    return promisify(this.client, this.client.mset, key, value, ...args);
+  }
+
+  msetnx(key: string, value: string, ...args: any[]): Promise<any> {
+    return promisify(this.client, this.client.msetnx, key, value, ...args);
+  }
+
+  mget(key: string, ...args: any[]): Promise<string[]> {
+    return promisify(this.client, this.client.mget, key, ...args);
+  }
+
+  //#endregion
+
+  //#region 哈希表
+
+  //#endregion
+
+  //#region 列表
+
+  //#endregion
+
+  //#region 集合
+
+  //#endregion
+
+  //#region 有序集合
+  zadd(key: string, ...args: (string | number)[]): Promise<number> {
+    return promisify(this.client, this.client.zadd, key, ...args);
+  }
+
+  zscore(key: string, member: string): Promise<string> {
+    return promisify(this.client, this.client.zscore, key, member);
+  }
+
+  zcard(key: string): Promise<number> {
+    return promisify(this.client, this.client.zcard, key);
+  }
+
+  zcount(key: string, min: number | string, max: number | string): Promise<number> {
+    return promisify(this.client, this.client.zcount, key, min, max);
+  }
+
+  zrange(key: string, ...args: any[]): Promise<string[]> {
+    return promisify(this.client, this.client.zrange, key, ...args);
+  }
+
+  zrevrange(key: string, ...args: any[]): Promise<string[]> {
+    return promisify(this.client, this.client.zrevrange, key, ...args);
+  }
+  //#endregion
 }
 
 function promisify(client: RedisClient, callback: Function, ...args: any[]): Promise<any> {
-  return new Promise((resolve, reject) => {
-    if (!client) {
-      reject(new Error('client is undefined'));
-      return;
-    }
+  if (!client) {
+    return Promise.reject(new Error('client is undefined'));
+  }
 
+  return new Promise((resolve, reject) => {
     callback.call(client, ...args, (error: Error, reply: any) => {
       if (error) {
         reject(error);

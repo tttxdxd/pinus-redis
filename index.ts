@@ -19,8 +19,6 @@ export class RedisComponent implements IComponent {
   }
 
   start(cb: () => void): void {
-    this.redis.start();
-
     process.nextTick(cb);
   }
 }
