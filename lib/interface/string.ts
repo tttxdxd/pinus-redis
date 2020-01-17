@@ -1,4 +1,4 @@
-import { IRedisBase } from "./base";
+import { IRedisBase } from "./Base";
 
 //   NX = 'NX',                  // 仅设置不存在的密钥。
 //   XX = 'XX',                  // 仅设置已存在的密钥。

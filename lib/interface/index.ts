@@ -1,4 +1,11 @@
+export * from './String';
 
-export * from './string';
+export * from './List';
 
-export * from './zset';
+export * from './Set';
+
+export * from './Hash';
+
+export * from './Zset';
+
+export * from './HyperLogLog';
