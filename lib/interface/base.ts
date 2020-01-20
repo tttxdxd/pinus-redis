@@ -1,5 +1,7 @@
 export interface IRedisBase {
 
+  ping(...args: string[]): Promise<'PONG'>;
+
   /**
    * 检测给定的 key 是否存在 返回存在的 key 的个数
    * 

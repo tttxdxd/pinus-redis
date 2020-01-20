@@ -15,6 +15,10 @@ describe('#Redis 基础', function () {
     await proxy.del(testKey, testKey2);
   });
 
+  it('ping', async function () {
+    should.strictEqual(await proxy.ping(), 'PONG');
+  });
+
   it('exists', async function () {
     should.strictEqual(await proxy.set(testKey, testValue), 'OK');
 

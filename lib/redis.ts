@@ -5,13 +5,15 @@
  */
 
 'use strict';
-import { createClient, RedisClient, ClientOpts } from 'redis';
+import { createClient, RedisClient, ClientOpts, Multi } from 'redis';
 import { Logger } from 'log4js';
 
-import { IRedisString, IRedisZset, IHyperLogLog, IRedisList, IRedisSet } from './interface';
+import { IRedisString, IRedisZset, IHyperLogLog, IRedisList, IRedisSet, IRedisCommand } from './interface';
 import { IRedisHash } from './interface/Hash';
+import { IRedisBitmap, FieldType, FieldOffset, OverflowType } from './interface/Bitmap';
+import "./interface/Pipeline";
 
-export class RedisProxy implements IRedisString, IRedisList, IRedisSet, IRedisHash, IRedisZset, IHyperLogLog {
+export class RedisProxy implements IRedisCommand {
   logger: Console | Logger = console;
   client!: RedisClient;
   clientOpts?: ClientOpts;
@@ -21,6 +23,7 @@ export class RedisProxy implements IRedisString, IRedisList, IRedisSet, IRedisHa
   Set: IRedisSet = this;
   Hash: IRedisHash = this;
   Zset: IRedisZset = this;
+  Bitmap: IRedisBitmap = this;
   HyperLogLog: IHyperLogLog = this;
 
   constructor(opts?: ClientOpts, logger?: Console | Logger) {
@@ -32,6 +35,7 @@ export class RedisProxy implements IRedisString, IRedisList, IRedisSet, IRedisHa
     // this.client.monitor(function (err, res) {
     //   console.log("Entering monitoring mode.");
     // });
+
   }
 
   start() {
@@ -83,7 +87,12 @@ export class RedisProxy implements IRedisString, IRedisList, IRedisSet, IRedisHa
     this.logger.log(time + ": " + args); // 1458910076.446514:['set', 'foo', 'bar']
   }
 
+
   //#region base
+
+  ping(...args: string[]): Promise<'PONG'> {
+    return promisify(this.client, this.client.ping, ...args);
+  }
 
   exists(...keys: string[]): Promise<number> {
     return promisify(this.client, this.client.exists, ...keys);
@@ -121,6 +130,7 @@ export class RedisProxy implements IRedisString, IRedisList, IRedisSet, IRedisHa
     return promisify(this.client, this.client.pttl, key);
   }
   //#endregion
+
 
   //#region 字符串
 
@@ -442,6 +452,49 @@ export class RedisProxy implements IRedisString, IRedisList, IRedisSet, IRedisHa
   //#endregion
 
 
+  //#region 位图
+  setbit(key: string, offset: number, value: number): Promise<number> {
+    return promisify(this.client, this.client.setbit, key, offset, value);
+  }
+
+  getbit(key: string, offset: number): Promise<number> {
+    return promisify(this.client, this.client.getbit, key, offset);
+  }
+
+  bitcount(key: string): Promise<number> {
+    return promisify(this.client, this.client.bitcount, key);
+  }
+
+  bitpos(key: string, bit: number, ...args: number[]): Promise<number> {
+    return promisify(this.client, this.client.bitpos, key, bit, ...args);
+  }
+
+  bitop(operation: string, destkey: string, ...args: string[]): Promise<number> {
+    return promisify(this.client, this.client.bitop, operation, destkey, args);
+  }
+
+  bitfield(key: string, ...args: (string | number)[]): Promise<[number, number]> {
+    return promisify(this.client, this.client.bitfield, key, ...args);
+  }
+
+  cmdSet(type: FieldType, offset: FieldOffset, value: string): any[] {
+    return ['SET', type, offset, value];
+  }
+
+  cmdGet(type: FieldType, offset: FieldOffset): any[] {
+    return ['GET', type, offset];
+  }
+
+  cmdIncrby(type: FieldType, offset: FieldOffset, increment: number): any[] {
+    return ['INCRBY', type, offset, increment];
+  }
+
+  cmdIncrbyWithOverflow(oftype: OverflowType, type: FieldType, offset: FieldOffset, increment: number): any[] {
+    return ['OVERFLOW', oftype, 'INCRBY', type, offset, increment];
+  }
+  //#endregion
+
+
   //#region HyperLogLog
   pfadd(key: string, field: string, ...fields: string[]): Promise<number> {
     return promisify(this.client, this.client.pfadd, key, field, ...fields);
@@ -465,6 +518,15 @@ export class RedisProxy implements IRedisString, IRedisList, IRedisSet, IRedisHa
 
   subscribe(channel: string): Promise<string> {
     return promisify(this.client, this.client.subscribe, channel);
+  }
+
+  //#endregion
+
+
+  //#region pipeline
+
+  multi(): Multi {
+    return this.client.multi();
   }
 
   //#endregion
